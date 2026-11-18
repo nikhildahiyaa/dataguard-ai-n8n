@@ -1,142 +1,255 @@
-# DataGuard AI — n8n + PostgreSQL + FastAPI
+<div align="center">
 
-Portfolio-ready, local-first **synthetic** loan-data quality monitoring. Runs PostgreSQL,
-FastAPI and n8n with Docker Compose; imports an n8n workflow that validates and logs
-planted anomalies. No cloud AI account or Slack account is required for this MVP.
+# 🛡️ DataGuard AI
 
-## Requirements
+### Automated Financial Data Quality Monitoring
 
-- Docker Desktop / Docker Engine with Compose v2
-- 3 available local TCP ports: 5433 (Postgres), 8000 (API), 5678 (n8n)
-- A terminal and a browser
+**Detect anomalies · Orchestrate validations · Explore quality trends**
 
-## Quick start
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![n8n](https://img.shields.io/badge/n8n-Automation-EA4B71?logo=n8n&logoColor=white)](https://n8n.io/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
-1. Unzip this project and open a terminal inside `dataguard-ai-n8n/`.
-2. Create `.env` from the sample:
+**Local-first • Open-source-ready • Synthetic data only • No paid AI API required**
 
-   ```bash
-   cp .env.example .env
-   ```
+[Overview](#-overview) · [Screenshots](#-screenshots) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [API](#-api-reference)
 
-3. **Edit `.env`** and replace `POSTGRES_PASSWORD` and `N8N_ENCRYPTION_KEY` with your own
-   independent random secrets. For example, generate each secret with
-   `python3 -c 'import secrets; print(secrets.token_hex(32))'`.
-   Avoid special URI-reserved characters in `POSTGRES_PASSWORD` unless URL-encoded.
-4. Start services:
+</div>
 
-   ```bash
-   docker compose up -d --build
-   docker compose ps
-   ```
+---
 
-5. Generate deterministic test data (7,001 synthetic rows):
+## 🎯 Overview
 
-   ```bash
-   docker compose run --rm seed
-   ```
+**DataGuard AI** is an end-to-end, local data-quality monitoring project for *synthetic loan portfolios*. Python and FastAPI perform reproducible validation, PostgreSQL records the results, n8n orchestrates monitoring and alert logging, and Streamlit makes findings easy to explore.
 
-   **Warning:** The seed command intentionally resets portfolio, validation, and alert
-   tables. Do not use it after creating data you wish to retain.
-6. Test the validation endpoint:
+It is designed as a portfolio demonstration of **data engineering, automation, API development, database design, and analytical visualization**. Despite the project name, the current version uses **deterministic rules, not a paid AI model or LLM-generated explanations**.
 
-   ```bash
-   curl -s http://localhost:8000/health
-   curl -s -X POST http://localhost:8000/validate \
-     -H 'Content-Type: application/json' -d '{}'
-   ```
+### Sample validation results
 
-   The second request should return `issues_found`, a `run_id`, and specific checks.
+Results from an intentionally faulty **November 18, 2026** synthetic snapshot:
 
-7. Open **http://localhost:5678**. Complete n8n's first-run local owner setup.
-8. In n8n, import `workflows/daily_monitor.json` (workflow menu → Import from File).
-9. Click **Execute workflow** using the Manual Trigger. It should reach
-   **Persist Alert Event** on the `true` branch. The API logs a validation run and
-   then persists a corresponding alert event in PostgreSQL.
-10. Inspect results:
+| Records checked | Failed rule types | High-severity types | Status |
+| :---: | :---: | :---: | :---: |
+| **1,001** | **7** | **4** | **Issues found** |
 
-    ```bash
-    curl -s http://localhost:8000/runs
-    curl -s http://localhost:8000/alerts
-    ```
+| Anomaly | Severity | Observed finding |
+|---|---|---|
+| Missing probability of default (PD) | 🔴 High | 30 missing values (about 3.0%) |
+| Invalid PD | 🔴 High | 1 invalid value |
+| Invalid loss given default (LGD) | 🔴 High | 1 invalid value |
+| Duplicate borrower + snapshot date | 🟠 Medium | 1 duplicate occurrence |
+| Negative exposure | 🔴 High | 1 invalid value |
+| Invalid risk rating | 🟠 Medium | 1 invalid value |
+| Portfolio exposure shift | 🟠 Medium | **+28.89%** versus prior snapshot |
 
-11. To turn on daily monitoring, **publish/activate** the imported workflow in n8n.
-    The Schedule Trigger targets 8 AM `America/Vancouver` by default; change `TZ`
-    and the workflow's timezone together if needed. The schedule won't execute
-    until the workflow is activated/published.
+> The numbers above are from a seeded demonstration snapshot—not production data or a claim about a real financial institution. Counts can overlap and should not be summed as unique affected borrowers. The validator also supports a missing-LGD check, which was not triggered in this sample run.
 
-## API endpoints
+## 📸 Screenshots
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/health` | Health check |
-| POST | `/validate` | Analyze latest snapshot (`{}`) or `{"snapshot_date":"2026-11-18"}`; persist audit run |
-| POST | `/alerts` | Persist alert event referencing an existing run |
-| GET | `/runs` | Last 20 validation runs |
-| GET | `/alerts` | Last 20 alert events |
-| GET | `/docs` | Interactive OpenAPI docs |
+### Streamlit monitoring dashboard
 
-## Run automated tests
+View rule failures, affected counts, severity distribution, audit history, and alerts.
+
+![Streamlit dashboard showing loan portfolio data-quality metrics and validation trends](docs/screenshots/streamlit-dashboard.jpg)
+
+### n8n workflow execution
+
+Scheduled/manual trigger → FastAPI validation → issue routing → alert persistence.
+
+![Successful n8n DataGuard workflow execution with alert branch](docs/screenshots/n8n-workflow.jpg)
+
+## ✨ Features
+
+| Capability | Implementation |
+|---|---|
+| **Automated validation** | Python rules for missing and invalid risk values, duplicates, negative exposure, ratings, and exposure shifts |
+| **Workflow orchestration** | n8n schedule trigger (8:00 AM by default) and manual testing |
+| **API layer** | FastAPI endpoints for validation, audit history, and alerts |
+| **Audit trail** | PostgreSQL tables for portfolio snapshots, validation runs, and alert events |
+| **Visual analytics** | Streamlit KPI summary, anomaly and severity charts, historical trends, and CSV export |
+| **Reproducible demo** | Docker Compose and a deterministic synthetic data generator |
+| **No paid AI dependencies** | Entire MVP runs locally without OpenAI, Anthropic, or cloud AI credentials |
+
+## 🧩 Architecture
+
+```mermaid
+flowchart TD
+    A[Manual Trigger] --> C[HTTP POST /validate]
+    B[Daily 8 AM Schedule] --> C
+    C --> D[FastAPI Validation Engine]
+    D <--> E[(PostgreSQL: portfolio + audit)]
+    D --> F{Issues found?}
+    F -->|Yes| G[HTTP POST /alerts]
+    F -->|No| H[End]
+    G --> E
+    E --> D
+    I[Streamlit Dashboard] -->|GET /runs and /alerts| D
+    J[(PostgreSQL: n8n metadata)] --- B
+```
+
+- **FastAPI** is the source of validation results and audit APIs.
+- **n8n** invokes the API and writes an alert event when rules fail.
+- **Streamlit** reads validation and alert history via FastAPI; it does not write to PostgreSQL directly.
+- PostgreSQL holds separate application and n8n databases.
+- Within Docker, the API is accessed using `http://api:8000`; from your Mac it is `http://localhost:8000`.
+
+## 🛠️ Tech stack
+
+| Layer | Technologies |
+|---|---|
+| Validation and REST API | Python, FastAPI |
+| Database | PostgreSQL 16 |
+| Workflow orchestration | n8n |
+| Dashboard | Streamlit, Plotly, Pandas |
+| Containerization | Docker Compose |
+| Testing | pytest |
+
+## 🚀 Quick Start
+
+### Requirements
+
+- Docker Desktop (or Docker Engine + Compose)
+- Git and a terminal
+- Available ports: **5678** (n8n), **8000** (API), **8501** (dashboard), **5433** (PostgreSQL on host)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/nikhildahiyaa/dataguard-ai-n8n.git
+cd dataguard-ai-n8n
+```
+
+### 2. Configure local secrets
+
+```bash
+cp .env.example .env
+```
+
+Replace the example values for `POSTGRES_PASSWORD` and `N8N_ENCRYPTION_KEY` in `.env` with **two different** long random secrets. You can generate them with `openssl rand -hex 32`. Do not commit `.env`.
+
+### 3. Start the backend and automation
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+### 4. Seed the database (first-time demo setup only)
+
+```bash
+docker compose run --rm seed
+```
+
+> **Destructive operation:** the seeder resets the loan portfolio, validation runs, and alert history. Run it only when you intentionally want to reset your demo dataset; do **not** rerun it when trying to preserve existing results.
+
+### 5. Run a validation
+
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/validate \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+### 6. Set up n8n
+
+1. Open **http://localhost:5678** and complete its local account setup.
+2. Create/open a workflow and choose **Import from File**.
+3. Import [`workflows/daily_monitor.json`](workflows/daily_monitor.json).
+4. Click **Execute workflow** to test the alert branch.
+5. Publish/activate the workflow **only if** you want the scheduled 8:00 AM automation to run.
+
+### 7. Start the Streamlit dashboard
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dashboard.yml up -d --build dashboard
+```
+
+Open **http://localhost:8501**, then use **Refresh data** to load current validation runs. The dashboard reads local FastAPI endpoints and requires no third-party credentials.
+
+### 8. Inspect saved results
+
+```bash
+curl http://localhost:8000/runs
+curl http://localhost:8000/alerts
+```
+
+## 🔌 API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/validate` | Validate latest or specified snapshot; save validation run |
+| `POST` | `/alerts` | Store alert for an existing validation run |
+| `GET` | `/runs` | View recent validation results |
+| `GET` | `/alerts` | View recent alert events |
+| `GET` | `/docs` | Swagger / OpenAPI interface |
+
+Example request targeting a specific synthetic snapshot:
+
+```bash
+curl -X POST http://localhost:8000/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"snapshot_date":"2026-11-18"}'
+```
+
+## 🧪 Testing
 
 ```bash
 docker compose run --rm --no-deps seed python -m pytest -q tests
 ```
 
-Note: tests are **not** database integration tests; they verify deterministic validation logic.
+The included tests focus on deterministic validation logic; they are **not** full end-to-end database integration tests.
 
-## Architecture
+## 🗂️ Project Structure
 
 ```text
-Manual Trigger ─┐
-                ├─> HTTP POST /validate ─> IF issues_found ─┬─true─> HTTP POST /alerts
-Daily 8 AM ─────┘                                           └─false─> End
-                       FastAPI ↔ PostgreSQL
-                       n8n   ↔ PostgreSQL (separate n8n database)
+dataguard-ai-n8n/
+├── api/                         # FastAPI endpoints and validation logic
+├── dashboard/                   # Streamlit UI and container build
+├── data/                        # Synthetic dataset generator
+├── database/                    # PostgreSQL initialization schema
+├── docs/
+│   ├── architecture.md
+│   └── screenshots/              # Real local demo screenshots
+├── tests/                       # Validation unit tests
+├── workflows/
+│   └── daily_monitor.json       # Importable n8n workflow
+├── docker-compose.yml
+├── docker-compose.dashboard.yml
+├── Dockerfile
+├── requirements.txt
+├── .env.example                  # Safe example configuration
+└── README.md
 ```
 
-- PostgreSQL `dataguard` database stores synthetic portfolio, audit runs, alerts.
-- PostgreSQL `n8n` database holds n8n workflows and credentials.
-- `api/validation.py` performs deterministic checks; there are no LLM guesses.
-- The n8n workflow uses Docker-network hostname `api`, not `localhost`.
+## 🔐 Security and Limitations
 
-## Checks
+- **Synthetic data only.** Do not upload employer, borrower, or other confidential data.
+- **Local-development deployment.** Service ports are bound to `127.0.0.1`. Authentication, TLS, access controls, and additional hardening are required before any public deployment.
+- Keep `.env`, tokens, keys, and credential-bearing workflow exports out of GitHub.
+- Thresholds are **demonstration assumptions**, not institution-approved credit policy.
+- Snapshot-level exposure comparisons can flag changes without establishing the cause.
+- Historical dashboard trends represent stored validation **executions**, so repeat validations of one snapshot appear more than once.
+- The current dashboard displays up to the API's recent-history window; it is not a full historical data warehouse.
 
-Missing PD (>1%), invalid PD, invalid LGD, missing LGD, duplicate borrower on
-same day, negative exposure, invalid rating (assumed 1–15), and absolute portfolio
-exposure movement (>15% vs previous snapshot). Rating bands and thresholds are
-**demo assumptions**, not bank policy.
+## 🧭 Future Improvements
 
-The final snapshot (2026-11-18) deliberately contains errors and a broad exposure
-shift. Earlier days normally have clean samples. These are synthetic data only.
+- [ ] Quality scoring and filters by borrower segment and snapshot date
+- [ ] Alert deduplication and optional email/Slack integrations
+- [ ] CI checks and full API/database integration tests
+- [ ] More realistic multi-day synthetic anomaly trends
+- [ ] Optional local-model anomaly summaries (no paid API required)
 
-## Troubleshooting
+---
 
-- API not ready: `docker compose logs -f api postgres`
-- n8n can't reach API: within n8n use `http://api:8000`, **not** `localhost:8000`.
-- Database initialized without `n8n` database: SQL init scripts run only when
-  the Postgres volume is first created. If starting fresh, run
-  `docker compose down -v` **only if you agree to permanently erase ALL local data**,
-  then `docker compose up -d --build` and seed again.
-- n8n credentials missing after restart: keep `.env` and the `n8n_data` volume.
-- On a conflict with port 5433, change the host-side binding only.
-- To inspect the SQL tables:
+<div align="center">
 
-  ```bash
-  docker compose exec postgres psql -U dataguard -d dataguard -c \
-    "SELECT snapshot_date, count(*) FROM loan_portfolio GROUP BY 1 ORDER BY 1;"
-  ```
+**Built as a portfolio project to demonstrate financial data validation, API engineering, automation, and analytics.**
 
-## Security / deployment
+[Back to top](#️-dataguard-ai)
 
-Local development only. Services bind to `127.0.0.1`; do **not** expose the API,
-Postgres, or n8n publicly without authentication, TLS, and access controls.
-Never commit `.env`, actual credentials, confidential records, or exports
-containing secrets. Consider pinning and updating image versions for deployments.
-
-## Next steps
-
-- Send actual Slack/email alerts, with opt-in credentials and deduplication.
-- Add Great Expectations or comprehensive schema validation.
-- Add an AI explanation step **after** deterministic checks; constrain it to
-  supplied facts and validate the output schema.
-- Build a Streamlit quality-trends dashboard and CI pipeline.
+</div>
